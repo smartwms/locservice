@@ -16,6 +16,9 @@ export default class Plotter {
 
     this.chart = new Chart(ctx, {
       type: "scatter",
+      options: {
+        responsive: false,
+      },
       data: {
         datasets: [
           {
