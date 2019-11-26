@@ -18,17 +18,20 @@ func main() {
 	errChan := make(chan error)
 	stopChan := make(chan struct{})
 	exitChan := make(chan os.Signal, 1)
+	measChan := make(chan mqtt.RawMeasure, 30)
 	signal.Notify(exitChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		errChan <- mqtt.Start(stopChan)
+		errChan <- mqtt.Start(stopChan, measChan)
 	}()
 
-	// server.Start()
+	go func() {
+		errChan <- DumpRawMeasure(measChan, "5ccf7fdb3643")
+	}()
 
-	client := db.NewClient()
-	meas, _ := client.GetTagLastMeasures("dbd93de08ed7")
-	log.Infof("%+v", meas)
+	// go func() {
+	// 	errChan <- server.Start()
+	// }()
 
 	for {
 		select {
@@ -41,6 +44,30 @@ func main() {
 			close(stopChan)
 			time.Sleep(100 * time.Millisecond)
 			os.Exit(0)
+		}
+	}
+}
+
+func DumpRawMeasure(measures chan mqtt.RawMeasure, sensor string) error {
+	client := db.NewClient()
+
+	for {
+		meas := <-measures
+
+		if meas.SensorID != sensor {
+			continue
+		}
+
+		err := client.AddRawMeasure(
+			meas.SensorID,
+			meas.TagID,
+			meas.Timestamp,
+			meas.Channel,
+			meas.RSSI,
+		)
+
+		if err != nil {
+			return err
 		}
 	}
 }

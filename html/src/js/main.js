@@ -4,22 +4,22 @@ import Plotter from "./plotter";
 
 import "../sass/style.scss";
 
+const sensor = "5ccf7fdb3643";
+const tag = "dbd93de08ed7";
+
 const main = async () => {
   let db = new Database();
-  let sensors = await db.getSensors();
-  console.log(sensors);
+  //   let lastRaw = await db.getLastRaw(sensor, tag);
+  //   console.log(lastRaw);
 
   let plot = new Plotter("myChart");
-  for (let sensor of sensors) {
-    plot.addSensor(sensor.pos);
-  }
+  //   for (let raw of lastRaw) {
+  //     plot.addPoint(raw.ch, raw.ts, raw.rssi);
+  //   }
 
-  let anchors = await db.getAnchors();
-  console.log(anchors);
-
-  for (let anchor of anchors) {
-    plot.addAnchor(anchor.pos);
-  }
+  db.subscribeToRaw(sensor, tag, raw => {
+    plot.addPoint(raw.ch, raw.ts, raw.rssi);
+  });
 };
 
 main();

@@ -14,48 +14,54 @@ export default class Plotter {
       avg: 6,
     };
 
+    this.values = {
+      37: [],
+      38: [],
+      39: [],
+    };
+
     this.chart = new Chart(ctx, {
-      type: "scatter",
+      type: "line",
       options: {
         responsive: false,
+        scales: {
+          xAxes: [
+            {
+              type: "time",
+              display: false,
+            },
+          ],
+          yAxes: [
+            {
+              display: true,
+              ticks: {
+                beginAtZero: true,
+                min: -100,
+                max: -30,
+              },
+            },
+          ],
+        },
       },
       data: {
         datasets: [
           {
-            label: "sensors",
-            data: [],
-            backgroundColor: "rgba(255, 0, 0, 1)",
-          },
-          {
-            label: "anchors",
-            data: [],
-            backgroundColor: "rgba(0, 0, 0, 1)",
-            pointStyle: "triangle",
-          },
-          {
-            label: "actual_pos",
-            data: [],
-            backgroundColor: "rgba(0, 0, 0, 1)",
-          },
-          {
-            label: "ch37",
-            data: [],
-            backgroundColor: "rgba(255, 0, 0, 0.3)",
+            label: "ch39",
+            data: this.values[39],
+            borderColor: "rgba(255, 0, 0, 1)",
+            fill: false,
           },
           {
             label: "ch38",
-            data: [],
-            backgroundColor: "rgba(0, 255, 0, 0.3)",
+            data: this.values[38],
+            borderColor: "rgba(0, 255, 0, 1)",
+            fill: false,
           },
           {
-            label: "ch39",
-            data: [],
-            backgroundColor: "rgba(0, 0, 255, 0.3)",
-          },
-          {
-            label: "biggest",
-            data: [],
-            backgroundColor: "rgba(0, 0, 0, 0.3)",
+            label: "ch37",
+            data: this.values[37],
+            borderColor: "rgba(0, 0, 255, 1)",
+            fill: false,
           },
         ],
       },
@@ -71,6 +77,17 @@ export default class Plotter {
   addAnchor(pos) {
     console.log(`Adding anchor at (${pos.x},${pos.y})  to chart.`);
     this.chart.data.datasets[this.labels["anchors"]].data.push(pos);
+    this.chart.update();
+  }
+
+  addPoint(ch, ts, rssi) {
+    console.log(`Adding point at (${ts},${rssi}) to ${ch}.`);
+
+    this.values[ch].push({ x: ts, y: -rssi });
+    if (this.values[ch].length > 15) {
+      this.values[ch].shift();
+    }
+
     this.chart.update();
   }
 }

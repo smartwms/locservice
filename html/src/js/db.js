@@ -1,4 +1,4 @@
-import firebase from "firebase";
+import firebase from "firebase/app";
 import "firebase/firestore";
 
 export default class Database {
@@ -49,5 +49,39 @@ export default class Database {
     });
 
     return anchors;
+  }
+
+  async getLastRaw(sensor, tag) {
+    let query = await this._db
+      .collection("raw")
+      .where("sensor", "==", sensor)
+      .where("tag", "==", tag)
+      .where("ts", ">", Date.now() / 1000 - 30) // last 30 seconds
+      .orderBy("ts", "asc")
+      .limit(20)
+      .get();
+
+    let lastRaw = [];
+    query.forEach(doc => {
+      lastRaw.push(doc.data());
+    });
+
+    return lastRaw;
+  }
+
+  subscribeToRaw(sensor, tag, func) {
+    this._db
+      .collection("raw")
+      .where("sensor", "==", sensor)
+      .where("tag", "==", tag)
+      .where("ts", ">", Date.now() / 1000 - 30) // last 30 seconds
+      .orderBy("ts", "asc")
+      .onSnapshot(snap => {
+        snap.docChanges().forEach(change => {
+          if (change.type === "added") {
+            func(change.doc.data());
+          }
+        });
+      });
   }
 }

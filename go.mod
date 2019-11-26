@@ -9,6 +9,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.2.0
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/golang/geo v0.0.0-20190916061304-5b978397cfec
+	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.1
 	github.com/jung-kurt/gofpdf v1.12.6 // indirect

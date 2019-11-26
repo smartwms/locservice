@@ -41,6 +41,14 @@ type measure struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+type Raw struct {
+	SensorID  string `firestore:"sensor"`
+	TagID     string `firestore:"tag"`
+	Channel   int64  `firestore:"ch"`
+	RSSI      int64  `firestore:"rssi"`
+	Timestamp int64  `firestore:"ts"`
+}
+
 func NewClient() *DB {
 	ctx := context.Background()
 	sa := option.WithCredentialsFile("keys/smartwms-5d82e4c07095.json")
@@ -114,6 +122,18 @@ func (db *DB) GetAnchors() (map[string]anchor, error) {
 	}
 
 	return anchors, nil
+}
+
+func (db *DB) AddRawMeasure(sensor, tag string, ts, ch, rssi int64) error {
+	_, _, err := db.c.Collection("raw").Add(db.ctx, Raw{
+		SensorID:  sensor,
+		TagID:     tag,
+		Timestamp: ts,
+		Channel:   ch,
+		RSSI:      rssi,
+	})
+
+	return err
 }
 
 func (db *DB) GetTagLastMeasures(tag string) ([]measure, error) {

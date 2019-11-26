@@ -5,7 +5,7 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
-func Start() {
+func Start() error {
 	e := echo.New()
 
 	e.Use(middleware.Logger())
@@ -13,5 +13,5 @@ func Start() {
 
 	e.Static("/", "html/dist")
 
-	e.Logger.Fatal(e.Start(":8080"))
+	return e.Start(":8080")
 }
