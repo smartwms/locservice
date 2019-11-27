@@ -2,6 +2,8 @@ package mqtt
 
 import (
 	"encoding/hex"
+	"fmt"
+	"os"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -19,6 +21,8 @@ type RawMeasure struct {
 	RSSI      int64
 	Timestamp int64
 }
+
+var dumpFile, _ = os.Create("data-06.txt")
 
 func sensorMessageHanlder(values chan RawMeasure) mqtt.MessageHandler {
 	return func(client mqtt.Client, message mqtt.Message) {
@@ -42,6 +46,16 @@ func sensorMessageHanlder(values chan RawMeasure) mqtt.MessageHandler {
 		}
 
 		stringAddr := hex.EncodeToString(tagAddr)
+
+		dumpFile.WriteString(
+			fmt.Sprintf("%s\t%s\t%d\t%d\t%d\n",
+				sensor,
+				stringAddr,
+				incoming.GetChannel(),
+				incoming.GetRssi(),
+				incoming.GetTimestamp(),
+			),
+		)
 
 		values <- RawMeasure{
 			SensorID:  sensor,
