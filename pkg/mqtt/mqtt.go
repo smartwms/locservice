@@ -22,7 +22,7 @@ type RawMeasure struct {
 	Timestamp int64
 }
 
-var dumpFile, _ = os.Create("data-06.txt")
+var dumpFile, _ = os.Create("data.txt")
 
 func sensorMessageHanlder(values chan RawMeasure) mqtt.MessageHandler {
 	return func(client mqtt.Client, message mqtt.Message) {
@@ -47,15 +47,17 @@ func sensorMessageHanlder(values chan RawMeasure) mqtt.MessageHandler {
 
 		stringAddr := hex.EncodeToString(tagAddr)
 
-		dumpFile.WriteString(
-			fmt.Sprintf("%s\t%s\t%d\t%d\t%d\n",
-				sensor,
-				stringAddr,
-				incoming.GetChannel(),
-				incoming.GetRssi(),
-				incoming.GetTimestamp(),
-			),
+		data := fmt.Sprintf("%s\t%s\t%d\t%d\t%d\n",
+			sensor,
+			stringAddr,
+			incoming.GetChannel(),
+			incoming.GetRssi(),
+			incoming.GetTimestamp(),
 		)
+
+		dumpFile.WriteString(data)
+
+		log.Println(data)
 
 		values <- RawMeasure{
 			SensorID:  sensor,

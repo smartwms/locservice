@@ -9,17 +9,21 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/smartwms/locservice/pkg/db"
 	"github.com/smartwms/locservice/pkg/mqtt"
-	_ "github.com/smartwms/locservice/server"
+	"github.com/smartwms/locservice/server"
 )
 
 func main() {
-	log.SetLevel(log.DebugLevel)
+	logger := log.New()
+	logger.SetLevel(log.DebugLevel)
 
 	errChan := make(chan error)
 	stopChan := make(chan struct{})
 	exitChan := make(chan os.Signal, 1)
 	measChan := make(chan mqtt.RawMeasure, 30)
 	signal.Notify(exitChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// loc := locator.New(logger, db.NewClient())
+	// loc.Init()
 
 	go func() {
 		errChan <- mqtt.Start(stopChan, measChan)
@@ -29,9 +33,9 @@ func main() {
 		errChan <- DumpRawMeasure(measChan, "5ccf7fdb3643")
 	}()
 
-	// go func() {
-	// 	errChan <- server.Start()
-	// }()
+	go func() {
+		errChan <- server.Start()
+	}()
 
 	for {
 		select {

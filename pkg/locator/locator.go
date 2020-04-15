@@ -1,37 +1,123 @@
 package locator
 
 import (
+	"time"
+
 	log "github.com/sirupsen/logrus"
-	"gonum.org/v1/gonum/floats"
+	"gonum.org/v1/gonum/stat"
 
 	"github.com/golang/geo/r2"
+	"github.com/smartwms/locservice/pkg/db"
+	"github.com/smartwms/locservice/pkg/mqtt"
 )
 
 type Locator struct {
 	logger *log.Logger
-}
+	db     db.DBAccessor
 
-type LocationInputData struct {
-	Sensor string
-	RSSI   []float64
+	measures map[string]measure
+
+	sensors map[string]db.Sensor
+	anchors map[string]db.Anchor
+	tags    []db.Tag
 }
 
 type Location r2.Point
 
-func New(l *log.Logger) *Locator {
+type measure map[int64][]chMeasure
+
+type chMeasure struct {
+	v int64
+	t int64
+}
+
+func New(l *log.Logger, db db.DBAccessor) *Locator {
 	return &Locator{
 		logger: l,
+		db:     db,
 	}
 }
 
-func getBiggestRSSI(li LocationInputData) float64 {
-	return floats.Max(li.RSSI)
+func (l *Locator) Init() error {
+	l.logger.Infoln("Initializing logger")
+
+	var err error
+	l.sensors, err = l.db.GetSensors()
+
+	for _, v := range l.sensors {
+		l.measures[v.ID] = measure{
+			37: []chMeasure{},
+			38: []chMeasure{},
+			39: []chMeasure{},
+		}
+	}
+
+	if err != nil {
+		l.logger.Errorf("Couldn't load sensors: %+v", err)
+		return err
+	}
+
+	l.logger.Infoln("Loaded sensors")
+
+	l.anchors, err = l.db.GetAnchors()
+
+	if err != nil {
+		l.logger.Errorf("Couldn't load anchors: %+v", err)
+		return err
+	}
+
+	l.logger.Infoln("Loaded anchors")
+	return nil
 }
 
-// func (l* Locator) GetRef
+func (l *Locator) Run(meas chan mqtt.RawMeasure) {
+	for {
+		select {
+		case m := <-meas:
+			l.logger.Debugf("Got new measure: %+v", m)
 
-func (l *Locator) Locate(ld []LocationInputData) Location {
-	return Location{}
+			if m.TagID == l.tags[0].ID {
+				l.measures[m.SensorID][m.Channel] = append(l.measures[m.SensorID][m.Channel], chMeasure{
+					v: -m.RSSI,
+					t: m.Timestamp,
+				})
+			}
+
+			for _, measure := range l.measures {
+				measure[37] = cleanOldMeasures(measure[37])
+				measure[38] = cleanOldMeasures(measure[38])
+				measure[39] = cleanOldMeasures(measure[39])
+			}
+
+			means := map[string]float64{}
+
+			for sensor, measure := range l.measures {
+				_mean := make([]float64, 3)
+
+				for i, ch := range []int64{37, 38, 39} {
+					for _, m := range measure[ch] {
+						_mean[i] += float64(m.v)
+					}
+					_mean[i] /= float64(len(measure[ch]))
+				}
+
+				means[sensor] = stat.Mean(_mean, nil)
+			}
+		}
+	}
+}
+
+func cleanOldMeasures(target []chMeasure) []chMeasure {
+	newMeasures := []chMeasure{}
+	threshold := time.Now().UTC().Unix() - 5
+
+	for _, v := range target {
+		if v.t > threshold {
+			newMeasures = append(newMeasures, v)
+		}
+	}
+
+	return newMeasures
 }
 
 // func (l *Locator) Locate(ld []LocationInputData) Location {

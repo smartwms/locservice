@@ -20,17 +20,26 @@ type DB struct {
 	ctx context.Context
 }
 
-type sensor struct {
+type DBAccessor interface {
+	GetSensors() (map[string]Sensor, error)
+	GetAnchors() (map[string]Anchor, error)
+}
+
+type Sensor struct {
 	ID       string   `json:"id"`
 	Position r2.Point `json:"pos"`
 }
 
-type anchor struct {
+type Anchor struct {
 	ID       string   `json:"id"`
 	Position r2.Point `json:"pos"`
 }
 
-type measure struct {
+type Tag struct {
+	ID string `json:"id"`
+}
+
+type Measure struct {
 	RSSI struct {
 		Ch37 int64 `json:"ch37"`
 		Ch38 int64 `json:"ch38"`
@@ -51,7 +60,7 @@ type Raw struct {
 
 func NewClient() *DB {
 	ctx := context.Background()
-	sa := option.WithCredentialsFile("keys/smartwms-5d82e4c07095.json")
+	sa := option.WithCredentialsFile("keys/smartwms.json")
 	app, err := firebase.NewApp(ctx, nil, sa)
 
 	if err != nil {
@@ -70,11 +79,11 @@ func NewClient() *DB {
 	}
 }
 
-func (db *DB) GetSensors() (map[string]sensor, error) {
+func (db *DB) GetSensors() (map[string]Sensor, error) {
 	iter := db.c.Collection("sensors").Documents(db.ctx)
 	defer iter.Stop()
 
-	sensors := map[string]sensor{}
+	sensors := map[string]Sensor{}
 
 	for {
 		doc, err := iter.Next()
@@ -88,7 +97,7 @@ func (db *DB) GetSensors() (map[string]sensor, error) {
 
 		posX, posY, _ := posDataToFloats(doc.Data())
 
-		sensors[doc.Ref.ID] = sensor{
+		sensors[doc.Ref.ID] = Sensor{
 			ID:       doc.Ref.ID,
 			Position: r2.Point{X: posX, Y: posY},
 		}
@@ -97,11 +106,11 @@ func (db *DB) GetSensors() (map[string]sensor, error) {
 	return sensors, nil
 }
 
-func (db *DB) GetAnchors() (map[string]anchor, error) {
+func (db *DB) GetAnchors() (map[string]Anchor, error) {
 	iter := db.c.Collection("anchors").Documents(db.ctx)
 	defer iter.Stop()
 
-	anchors := map[string]anchor{}
+	anchors := map[string]Anchor{}
 
 	for {
 		doc, err := iter.Next()
@@ -115,13 +124,38 @@ func (db *DB) GetAnchors() (map[string]anchor, error) {
 
 		posX, posY, _ := posDataToFloats(doc.Data())
 
-		anchors[doc.Ref.ID] = anchor{
+		anchors[doc.Ref.ID] = Anchor{
 			ID:       doc.Ref.ID,
 			Position: r2.Point{X: posX, Y: posY},
 		}
 	}
 
 	return anchors, nil
+}
+
+func (db *DB) GetTags() ([]Tag, error) {
+	iter := db.c.Collection("tags").Documents(db.ctx)
+	defer iter.Stop()
+
+	tags := []Tag{}
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+
+		if err != nil {
+			log.Fatalf("Failed to iterate: %v", err)
+			return nil, err
+		}
+
+		tags = append(tags, Tag{
+			ID: doc.Ref.ID,
+		})
+	}
+
+	return tags, nil
 }
 
 func (db *DB) AddRawMeasure(sensor, tag string, ts, ch, rssi int64) error {
@@ -136,14 +170,14 @@ func (db *DB) AddRawMeasure(sensor, tag string, ts, ch, rssi int64) error {
 	return err
 }
 
-func (db *DB) GetTagLastMeasures(tag string) ([]measure, error) {
+func (db *DB) GetTagLastMeasures(tag string) ([]Measure, error) {
 	iter := db.c.Collection("measures").
 		Where("tag", "==", tag).
 		Documents(db.ctx)
 
 	defer iter.Stop()
 
-	measures := []measure{}
+	measures := []Measure{}
 
 	for {
 		doc, err := iter.Next()
@@ -158,7 +192,7 @@ func (db *DB) GetTagLastMeasures(tag string) ([]measure, error) {
 		fmt.Printf("%+v\n", doc.Data())
 
 		tmp, _ := json.Marshal(doc.Data())
-		meas := measure{}
+		meas := Measure{}
 
 		json.Unmarshal(tmp, &meas)
 		meas.Sensor = doc.Data()["sensor"].(*firestore.DocumentRef).ID
